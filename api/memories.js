@@ -1,7 +1,7 @@
 import { list, put, del } from '@vercel/blob'
 
-const PREFIX = 'memories/'
 const CAPTIONS_PATH = 'data/captions.json'
+const IMAGE_EXTENSIONS = /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp)$/i
 
 function defaultCaption(pathname) {
   const base = pathname.split('/').pop().replace(/\.[^.]+$/, '')
@@ -30,11 +30,9 @@ async function writeCaptions(captions) {
 
 export default async function handler(request, response) {
   if (request.method === 'GET') {
-    const [{ blobs }, captions] = await Promise.all([
-      list({ prefix: PREFIX }),
-      readCaptions(),
-    ])
+    const [{ blobs }, captions] = await Promise.all([list(), readCaptions()])
     const memories = blobs
+      .filter((b) => b.pathname !== CAPTIONS_PATH && IMAGE_EXTENSIONS.test(b.pathname))
       .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
       .map((b) => ({
         id: b.pathname,

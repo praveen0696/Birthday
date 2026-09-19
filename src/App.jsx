@@ -148,8 +148,8 @@ function AddPhotoInfoCard() {
     <div className="add-photo-card">
       <span className="add-photo-icon">+</span>
       <span>
-        Upload a photo in Vercel's Blob dashboard under a path starting with{' '}
-        <code>memories/</code> — it'll show up here automatically
+        Upload a photo in Vercel's Blob dashboard (any file name works) — it'll show up
+        here automatically
       </span>
     </div>
   )
