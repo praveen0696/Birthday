@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
+import { upload } from '@vercel/blob/client'
 import './App.css'
 
 const HEARTS = ['❤️', '💗', '💕', '💖', '❣️']
 const CELEBRATE_EMOJI = ['❤️', '💗', '💕', '💖', '❣️', '🎉', '🎊', '✨']
 const BALLOON_COLORS = ['🎈', '🎈', '🎈']
-
-const STORAGE_KEY = 'birthday-memories'
 
 const DEFAULT_MEMORIES = [
   { id: 'm1', caption: 'Our first dance', src: null },
@@ -15,16 +14,6 @@ const DEFAULT_MEMORIES = [
   { id: 'm5', caption: 'Just us, no plans', src: null },
   { id: 'm6', caption: 'The trip we still talk about', src: null },
 ]
-
-function loadMemories() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
-    if (Array.isArray(saved) && saved.length) return saved
-  } catch {
-    // ignore corrupt storage
-  }
-  return DEFAULT_MEMORIES
-}
 
 function Sparkles() {
   return (
@@ -140,13 +129,26 @@ function Balloons({ count = 6 }) {
 
 function PhotoCard({ memory, onPhotoChange, onCaptionChange, onRemove }) {
   const inputId = `photo-input-${memory.id}`
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState(false)
 
-  const handleFile = (e) => {
+  const handleFile = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => onPhotoChange(memory.id, reader.result)
-    reader.readAsDataURL(file)
+    setUploading(true)
+    setError(false)
+    try {
+      const blob = await upload(`memories/${Date.now()}-${file.name}`, file, {
+        access: 'public',
+        handleUploadUrl: '/api/upload',
+      })
+      onPhotoChange(memory.id, blob.url)
+    } catch {
+      setError(true)
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
   }
 
   return (
@@ -164,17 +166,20 @@ function PhotoCard({ memory, onPhotoChange, onCaptionChange, onRemove }) {
           <img src={memory.src} alt={memory.caption} />
         ) : (
           <>
-            <span>📷</span>
-            <small>Add photo</small>
+            <span>{uploading ? '⏳' : '📷'}</span>
+            <small>{uploading ? 'Uploading…' : error ? 'Upload failed, try again' : 'Add photo'}</small>
           </>
         )}
-        <span className="photo-overlay">Click to {memory.src ? 'change' : 'add'} photo</span>
+        <span className="photo-overlay">
+          {uploading ? 'Uploading…' : `Click to ${memory.src ? 'change' : 'add'} photo`}
+        </span>
       </label>
       <input
         id={inputId}
         type="file"
         accept="image/*"
         onChange={handleFile}
+        disabled={uploading}
         hidden
       />
       <div
@@ -192,27 +197,60 @@ function PhotoCard({ memory, onPhotoChange, onCaptionChange, onRemove }) {
 function App() {
   const [name] = useState('Bestie')
   const [burst, setBurst] = useState([])
-  const [memories, setMemories] = useState(loadMemories)
+  const [memories, setMemories] = useState(DEFAULT_MEMORIES)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memories))
-  }, [memories])
+    fetch('/api/memories')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (Array.isArray(data) && data.length) setMemories(data)
+      })
+      .catch(() => {
+        // /api routes only run on Vercel (or `vercel dev`) — fall back to
+        // the built-in defaults when previewing with plain `vite dev`
+      })
+  }, [])
+
+  const syncMemories = (next) => {
+    setMemories(next)
+    fetch('/api/memories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(next),
+    }).catch(() => {})
+  }
 
   const handlePhotoChange = (id, src) => {
-    setMemories((prev) => prev.map((m) => (m.id === id ? { ...m, src } : m)))
+    syncMemories(memories.map((m) => (m.id === id ? { ...m, src } : m)))
   }
 
   const handleCaptionChange = (id, caption) => {
-    setMemories((prev) => prev.map((m) => (m.id === id ? { ...m, caption } : m)))
+    syncMemories(memories.map((m) => (m.id === id ? { ...m, caption } : m)))
   }
 
   const addMemory = () => {
     const id = `m${Date.now()}`
-    setMemories((prev) => [...prev, { id, caption: 'New memory', src: null }])
+    syncMemories([...memories, { id, caption: 'New memory', src: null }])
   }
 
-  const removeMemory = (id) => {
-    setMemories((prev) => prev.filter((m) => m.id !== id))
+  const removeMemory = async (id) => {
+    const memory = memories.find((m) => m.id === id)
+    if (memory?.src) {
+      try {
+        const res = await fetch('/api/memories', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: memory.src }),
+        })
+        if (res.ok) {
+          setMemories(await res.json())
+          return
+        }
+      } catch {
+        // fall through to local-only removal
+      }
+    }
+    syncMemories(memories.filter((m) => m.id !== id))
   }
 
   const scrollTo = (id) => {

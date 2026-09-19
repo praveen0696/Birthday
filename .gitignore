@@ -14,6 +14,7 @@ dist-ssr
 
 # Local CLI state
 .sf
+.vercel
 
 # Editor directories and files
 .vscode/*
