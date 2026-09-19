@@ -203,39 +203,6 @@
   background: #fff3f6;
 }
 
-.add-photo-card {
-  aspect-ratio: 4 / 5;
-  align-self: start;
-  border-radius: 16px;
-  border: 2px dashed #e3a9be;
-  background: #fff0f4;
-  color: #b96b86;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 20px;
-  text-align: center;
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.add-photo-card code {
-  font-family: var(--mono);
-  background: rgba(185, 107, 134, 0.15);
-  padding: 1px 5px;
-  border-radius: 4px;
-}
-
-.add-photo-icon {
-  font-size: 30px;
-  line-height: 1;
-  font-weight: 700;
-}
-
 .no-memories {
   grid-column: 1 / -1;
   color: #a97a87;

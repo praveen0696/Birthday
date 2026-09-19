@@ -143,18 +143,6 @@ function PhotoCard({ memory, onCaptionChange, onRemove }) {
   )
 }
 
-function AddPhotoInfoCard() {
-  return (
-    <div className="add-photo-card">
-      <span className="add-photo-icon">+</span>
-      <span>
-        Upload a photo in Vercel's Blob dashboard (any file name works) — it'll show up
-        here automatically
-      </span>
-    </div>
-  )
-}
-
 function App() {
   const [name] = useState('Bestie')
   const [burst, setBurst] = useState([])
@@ -272,7 +260,6 @@ function App() {
           {loaded && memories.length === 0 && (
             <p className="no-memories">No photos yet — add some from the Vercel Blob dashboard!</p>
           )}
-          <AddPhotoInfoCard />
         </div>
         <button className="cta ghost" onClick={() => scrollTo('message')}>
           Read My Message 💌
