@@ -143,8 +143,9 @@ function PhotoCard({ memory, onPhotoChange, onCaptionChange, onRemove }) {
         handleUploadUrl: '/api/upload',
       })
       onPhotoChange(memory.id, blob.url)
-    } catch {
-      setError(true)
+    } catch (err) {
+      console.error('Photo upload failed:', err)
+      setError(err.message || 'Upload failed')
     } finally {
       setUploading(false)
       e.target.value = ''
@@ -167,7 +168,7 @@ function PhotoCard({ memory, onPhotoChange, onCaptionChange, onRemove }) {
         ) : (
           <>
             <span>{uploading ? '⏳' : '📷'}</span>
-            <small>{uploading ? 'Uploading…' : error ? 'Upload failed, try again' : 'Add photo'}</small>
+            <small>{uploading ? 'Uploading…' : error ? `Failed: ${error}` : 'Add photo'}</small>
           </>
         )}
         <span className="photo-overlay">
