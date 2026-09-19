@@ -138,7 +138,7 @@ function Balloons({ count = 6 }) {
   )
 }
 
-function PhotoCard({ memory, onPhotoChange, onCaptionChange }) {
+function PhotoCard({ memory, onPhotoChange, onCaptionChange, onRemove }) {
   const inputId = `photo-input-${memory.id}`
 
   const handleFile = (e) => {
@@ -151,6 +151,14 @@ function PhotoCard({ memory, onPhotoChange, onCaptionChange }) {
 
   return (
     <div className="photo-card">
+      <button
+        type="button"
+        className="remove-photo"
+        title="Remove this card"
+        onClick={() => onRemove(memory.id)}
+      >
+        ✕
+      </button>
       <label className="photo-placeholder" htmlFor={inputId}>
         {memory.src ? (
           <img src={memory.src} alt={memory.caption} />
@@ -201,6 +209,10 @@ function App() {
   const addMemory = () => {
     const id = `m${Date.now()}`
     setMemories((prev) => [...prev, { id, caption: 'New memory', src: null }])
+  }
+
+  const removeMemory = (id) => {
+    setMemories((prev) => prev.filter((m) => m.id !== id))
   }
 
   const scrollTo = (id) => {
@@ -280,6 +292,7 @@ function App() {
               memory={m}
               onPhotoChange={handlePhotoChange}
               onCaptionChange={handleCaptionChange}
+              onRemove={removeMemory}
             />
           ))}
           <button className="add-photo-card" onClick={addMemory}>
