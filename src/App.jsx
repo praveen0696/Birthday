@@ -1,19 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { upload } from '@vercel/blob/client'
 import './App.css'
 
 const HEARTS = ['❤️', '💗', '💕', '💖', '❣️']
 const CELEBRATE_EMOJI = ['❤️', '💗', '💕', '💖', '❣️', '🎉', '🎊', '✨']
 const BALLOON_COLORS = ['🎈', '🎈', '🎈']
-
-const DEFAULT_MEMORIES = [
-  { id: 'm1', caption: 'Our first dance', src: null },
-  { id: 'm2', caption: 'That sunset by the sea', src: null },
-  { id: 'm3', caption: 'Adventures together', src: null },
-  { id: 'm4', caption: 'Silly faces, big laughs', src: null },
-  { id: 'm5', caption: 'Just us, no plans', src: null },
-  { id: 'm6', caption: 'The trip we still talk about', src: null },
-]
 
 function Sparkles() {
   return (
@@ -127,67 +117,25 @@ function Balloons({ count = 6 }) {
   )
 }
 
-function PhotoCard({ memory, onPhotoChange, onCaptionChange, onRemove }) {
-  const inputId = `photo-input-${memory.id}`
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState(false)
-
-  const handleFile = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
-    setError(false)
-    try {
-      const blob = await upload(`memories/${Date.now()}-${file.name}`, file, {
-        access: 'public',
-        handleUploadUrl: '/api/upload',
-      })
-      onPhotoChange(memory.id, blob.url)
-    } catch (err) {
-      console.error('Photo upload failed:', err)
-      setError(err.message || 'Upload failed')
-    } finally {
-      setUploading(false)
-      e.target.value = ''
-    }
-  }
-
+function PhotoCard({ memory, onCaptionChange, onRemove }) {
   return (
     <div className="photo-card">
       <button
         type="button"
         className="remove-photo"
-        title="Remove this card"
-        onClick={() => onRemove(memory.id)}
+        title="Remove this photo"
+        onClick={() => onRemove(memory)}
       >
         ✕
       </button>
-      <label className="photo-placeholder" htmlFor={inputId}>
-        {memory.src ? (
-          <img src={memory.src} alt={memory.caption} />
-        ) : (
-          <>
-            <span>{uploading ? '⏳' : '📷'}</span>
-            <small>{uploading ? 'Uploading…' : error ? `Failed: ${error}` : 'Add photo'}</small>
-          </>
-        )}
-        <span className="photo-overlay">
-          {uploading ? 'Uploading…' : `Click to ${memory.src ? 'change' : 'add'} photo`}
-        </span>
-      </label>
-      <input
-        id={inputId}
-        type="file"
-        accept="image/*"
-        onChange={handleFile}
-        disabled={uploading}
-        hidden
-      />
+      <div className="photo-placeholder">
+        <img src={memory.src} alt={memory.caption} />
+      </div>
       <div
         className="caption"
         contentEditable
         suppressContentEditableWarning
-        onBlur={(e) => onCaptionChange(memory.id, e.currentTarget.textContent)}
+        onBlur={(e) => onCaptionChange(memory, e.currentTarget.textContent)}
       >
         {memory.caption}
       </div>
@@ -195,63 +143,51 @@ function PhotoCard({ memory, onPhotoChange, onCaptionChange, onRemove }) {
   )
 }
 
+function AddPhotoInfoCard() {
+  return (
+    <div className="add-photo-card">
+      <span className="add-photo-icon">+</span>
+      <span>
+        Upload a photo in Vercel's Blob dashboard under a path starting with{' '}
+        <code>memories/</code> — it'll show up here automatically
+      </span>
+    </div>
+  )
+}
+
 function App() {
   const [name] = useState('Bestie')
   const [burst, setBurst] = useState([])
-  const [memories, setMemories] = useState(DEFAULT_MEMORIES)
+  const [memories, setMemories] = useState([])
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     fetch('/api/memories')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (Array.isArray(data) && data.length) setMemories(data)
-      })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setMemories(Array.isArray(data) ? data : []))
       .catch(() => {
-        // /api routes only run on Vercel (or `vercel dev`) — fall back to
-        // the built-in defaults when previewing with plain `vite dev`
+        // /api routes only run on Vercel (or `vercel dev`) — the gallery
+        // just stays empty when previewing with plain `vite dev`
       })
+      .finally(() => setLoaded(true))
   }, [])
 
-  const syncMemories = (next) => {
-    setMemories(next)
+  const handleCaptionChange = (memory, caption) => {
+    setMemories((prev) => prev.map((m) => (m.id === memory.id ? { ...m, caption } : m)))
     fetch('/api/memories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(next),
+      body: JSON.stringify({ url: memory.src, caption }),
     }).catch(() => {})
   }
 
-  const handlePhotoChange = (id, src) => {
-    syncMemories(memories.map((m) => (m.id === id ? { ...m, src } : m)))
-  }
-
-  const handleCaptionChange = (id, caption) => {
-    syncMemories(memories.map((m) => (m.id === id ? { ...m, caption } : m)))
-  }
-
-  const addMemory = () => {
-    const id = `m${Date.now()}`
-    syncMemories([...memories, { id, caption: 'New memory', src: null }])
-  }
-
-  const removeMemory = async (id) => {
-    const memory = memories.find((m) => m.id === id)
-    if (memory?.src) {
-      try {
-        const res = await fetch('/api/memories', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: memory.src }),
-        })
-        if (res.ok) {
-          setMemories(await res.json())
-          return
-        }
-      } catch {
-        // fall through to local-only removal
-      }
-    }
-    syncMemories(memories.filter((m) => m.id !== id))
+  const removeMemory = (memory) => {
+    setMemories((prev) => prev.filter((m) => m.id !== memory.id))
+    fetch('/api/memories', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: memory.src }),
+    }).catch(() => {})
   }
 
   const scrollTo = (id) => {
@@ -329,15 +265,14 @@ function App() {
             <PhotoCard
               key={m.id}
               memory={m}
-              onPhotoChange={handlePhotoChange}
               onCaptionChange={handleCaptionChange}
               onRemove={removeMemory}
             />
           ))}
-          <button className="add-photo-card" onClick={addMemory}>
-            <span className="add-photo-icon">+</span>
-            <span>Add Photo</span>
-          </button>
+          {loaded && memories.length === 0 && (
+            <p className="no-memories">No photos yet — add some from the Vercel Blob dashboard!</p>
+          )}
+          <AddPhotoInfoCard />
         </div>
         <button className="cta ghost" onClick={() => scrollTo('message')}>
           Read My Message 💌
